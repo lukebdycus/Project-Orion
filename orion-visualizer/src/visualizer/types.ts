@@ -30,4 +30,15 @@ export type BeamRoute = {
 export type BeamBlob = {
   id: string;
   nodeId: string;
-}
+  position: NodeCoordinates;
+  activatedAt: number;
+  fadeStartsAt: number;
+  fadeDuration: number;
+  size: number;
+  width?: number;
+  height?: number;
+  angle: number;
+  shape: ShapeType;
+};
+
+export type ShapeType = 'triangle' | 'square';

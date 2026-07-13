@@ -2,8 +2,10 @@ import { Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef, useState } from 'react';
 import { createBeamRoute } from './beamRoutes';
+import { BeamShape, createRandomBeamBlob } from './beamBlobs';
 import type {
   BeamRoute,
+  BeamBlob,
   NodeConnectionsProps,
   NodeCoordinates,
   NodeZone,
@@ -101,6 +103,8 @@ function AnimatedBeam({ beam, nodeById }: AnimatedBeamProps) {
     points: [],
     opacity: 0,
   });
+  const reachedNodeIndexes = useRef(new Set<number>());
+  const [shapeBlobs, setShapeBlobs] = useState<BeamBlob[]>([]);
 
   const routePoints = useMemo(() => {
     return beam.route.nodeIds
@@ -108,12 +112,78 @@ function AnimatedBeam({ beam, nodeById }: AnimatedBeamProps) {
       .filter((position): position is NodeCoordinates => Boolean(position));
   }, [beam.route.nodeIds, nodeById]);
 
+  const totalRouteLength = useMemo(() => {
+    return getPolylineLength(routePoints);
+  }, [routePoints]);
+
+  const nodeCumulativeDistances = useMemo(() => {
+    if (routePoints.length === 0) {
+      return [];
+    }
+
+    const distances: number[] = [0];
+
+    for (let index = 1; index < routePoints.length; index += 1) {
+      const previousPoint = routePoints[index - 1];
+      const currentPoint = routePoints[index];
+      const segmentLength = distance(previousPoint, currentPoint);
+      const previousCumulativeDistance = distances[index - 1];
+
+      distances.push(previousCumulativeDistance + segmentLength);
+    }
+
+    return distances;
+  }, [routePoints]);
+
   useFrame(({ clock }) => {
-    const age = clock.elapsedTime - beam.startedAt;
-    const fadeIn = clamp(age / 0.08, 0, 1);
+    const now = clock.elapsedTime;
+    const age = now - beam.startedAt;
     const revealDuration = beam.duration * revealRatio;
     const fadeDuration = beam.duration - revealDuration;
+    const fadeStartsAt = beam.startedAt + revealDuration;
 
+    for (let index = 0; index < routePoints.length; index += 1) {
+      const hasReachedNode = hasBeamReachedNode(
+        now,
+        beam,
+        nodeCumulativeDistances[index],
+        totalRouteLength,
+      );
+
+      const nodeId = beam.route.nodeIds[index];
+
+      if (
+        hasReachedNode &&
+        !reachedNodeIndexes.current.has(index) &&
+        nodeId !== 'center-0'
+      ) {
+        reachedNodeIndexes.current.add(index);
+        const blob = createRandomBeamBlob({
+          id: `${beam.id}:${index}`,
+          nodeId,
+          position: routePoints[index],
+          activatedAt: now,
+          fadeStartsAt,
+          fadeDuration,
+        });
+
+        setShapeBlobs((currentBlobs) => [
+          ...currentBlobs,
+          blob,
+        ]);
+      }
+    }
+
+    setShapeBlobs((currentBlobs) => {
+      const liveBlobs = currentBlobs.filter(
+        (blob) => now < blob.fadeStartsAt + blob.fadeDuration,
+      );
+
+      return liveBlobs.length === currentBlobs.length ? currentBlobs : liveBlobs;
+    });
+
+    const fadeIn = clamp(age / 0.08, 0, 1);
+    
     if (age <= revealDuration) {
       const revealProgress = clamp(age / revealDuration, 0, 1);
       const routeCompletion = revealProgress; 
@@ -159,7 +229,11 @@ function AnimatedBeam({ beam, nodeById }: AnimatedBeamProps) {
         depthWrite={false}
         depthTest={false}
       />
+      {shapeBlobs.map((blob) => (
+        <BeamShape key={blob.id} blob={blob} />
+      ))}
     </group>
+
   );
 }
 
@@ -272,4 +346,18 @@ function randomUnitVector(): NodeCoordinates {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function hasBeamReachedNode(
+  now: number,
+  beam: ActiveBeam,
+  nodeCumulativeDistance: number,
+  totalRouteLength: number
+): boolean {
+    const age = now - beam.startedAt;
+    const revealDuration = beam.duration * revealRatio;
+    const routeProgress = clamp(age / revealDuration, 0, 1);
+    const distanceTraveled = totalRouteLength * routeProgress;
+
+  return distanceTraveled >= nodeCumulativeDistance;
 }
