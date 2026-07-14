@@ -28,7 +28,6 @@ type BeamFrame = {
 
 const spawnInterval = 0.15;
 const maxActiveBeams = 40;
-const segmentSampleCount = 12;
 const revealRatio = 0.35;
 
 const beamColors: Record<NodeZone, string> = {
@@ -190,7 +189,7 @@ function AnimatedBeam({ beam, nodeById }: AnimatedBeamProps) {
       const routePulse = 0.35 + Math.pow(routeCompletion, 2.5) * 0.75;
 
       setFrame({
-        points: samplePolylineSegment(routePoints, 0, revealProgress),
+        points: getRevealedPolyline(routePoints, revealProgress),
         opacity: fadeIn * routePulse,
       });
 
@@ -248,10 +247,9 @@ function createActiveBeam(route: BeamRoute, startedAt: number): ActiveBeam {
   };
 }
 
-function samplePolylineSegment(
+function getRevealedPolyline(
   points: NodeCoordinates[],
-  start: number,
-  end: number,
+  revealProgress: number,
 ): NodeCoordinates[] {
   if (points.length < 2) {
     return [];
@@ -263,16 +261,32 @@ function samplePolylineSegment(
     return points.slice(0, 2);
   }
 
-  const startDistance = start * totalLength;
-  const endDistance = end * totalLength;
+  const headDistance = clamp(revealProgress, 0, 1) * totalLength;
+  const revealedPoints: NodeCoordinates[] = [points[0]];
+  let traveled = 0;
 
-  return Array.from({ length: segmentSampleCount }, (_, index) => {
-    const segmentProgress = index / (segmentSampleCount - 1);
-    const distance =
-      startDistance + (endDistance - startDistance) * segmentProgress;
+  for (let index = 1; index < points.length; index += 1) {
+    if (headDistance <= traveled) {
+      break;
+    }
 
-    return getPointAtPolylineDistance(points, distance);
-  });
+    const start = points[index - 1];
+    const end = points[index];
+    const segmentLength = distance(start, end);
+    const segmentEndDistance = traveled + segmentLength;
+
+    if (headDistance >= segmentEndDistance) {
+      revealedPoints.push(end);
+      traveled = segmentEndDistance;
+      continue;
+    }
+
+    const segmentProgress = (headDistance - traveled) / segmentLength;
+    revealedPoints.push(lerpPoint(start, end, segmentProgress));
+    break;
+  }
+
+  return revealedPoints;
 }
 
 function getPolylineLength(points: NodeCoordinates[]): number {
@@ -283,28 +297,6 @@ function getPolylineLength(points: NodeCoordinates[]): number {
   }
 
   return length;
-}
-
-function getPointAtPolylineDistance(
-  points: NodeCoordinates[],
-  targetDistance: number,
-): NodeCoordinates {
-  let traveled = 0;
-
-  for (let index = 1; index < points.length; index += 1) {
-    const start = points[index - 1];
-    const end = points[index];
-    const segmentLength = distance(start, end);
-
-    if (traveled + segmentLength >= targetDistance) {
-      const segmentProgress = (targetDistance - traveled) / segmentLength;
-      return lerpPoint(start, end, segmentProgress);
-    }
-
-    traveled += segmentLength;
-  }
-
-  return points[points.length - 1];
 }
 
 function lerpPoint(
