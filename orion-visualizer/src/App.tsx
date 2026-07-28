@@ -1,28 +1,10 @@
 import  { Canvas } from '@react-three/fiber';
 import './index.css';
-import React, { useRef, useState, ChangeEvent } from 'react';
 import { OrbitControls } from '@react-three/drei';
-import { SphereGeometry } from 'three';
 import { NodeField } from './visualizer/NodeField';
+import { AudioPlayer } from './audio/AudioPlayer';
 
 function App() {
-  //const audioContextRef = useRef(null);
-  //const audioElement = document.querySelector("audio");
-  //const track = audioContext.createMediaElementSource(audioElement);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  function openFilePicker() {
-    fileInputRef.current?.click();
-  }
-
-  function handleFileSelect(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    console.log(file);
-  }
-
   return (
     <div id="canvas-container">
       <Canvas 
@@ -38,19 +20,7 @@ function App() {
         <OrbitControls enableDamping />
       </Canvas>
 
-      <div className="audio-controls">
-        <button onClick={openFilePicker}>
-          Select Audio File
-        </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".mp3,.wav,audio/mpeg,audio/wav"
-          onChange={handleFileSelect}
-          style={{ display: 'none' }}
-        />
-      </div>
+      <AudioPlayer />
     </div>
   );
 }

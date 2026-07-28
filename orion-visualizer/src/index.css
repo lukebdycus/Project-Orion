@@ -1,5 +1,39 @@
+:root {
+  --audio-right: 24px;
+  --audio-bottom: 24px;
+  --audio-player-width: 300px;
+  --audio-height: 48px;
+  --audio-gap: 10px;
+  --audio-radius: 999px;
+  --audio-padding-x: 16px;
+  --audio-background: rgba(250, 248, 255, 0.94);
+  --audio-text: #17131d;
+  --audio-muted: #6f687a;
+  --audio-track: #aaa3b5;
+  --audio-progress: #17131d;
+  --audio-thumb: #17131d;
+  --audio-border: rgba(102, 250, 255, 0.65);
+  --audio-focus: #b46dff;
+  --audio-error: #ff9d9d;
+  --audio-shadow:
+    0 0 8px rgba(102, 250, 255, 0.65),
+    0 0 20px rgba(73, 185, 255, 0.28);
+  --audio-backdrop-blur: 12px;
+  --audio-icon-size: 24px;
+  --audio-icon-weight: 500;
+  --audio-icon-fill: 1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
 body {
   margin: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
 }
 
 #canvas-container {
@@ -9,9 +43,208 @@ body {
   overflow: hidden;
 }
 
-.audio-controls {
+.audio-dock {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  right: var(--audio-right);
+  bottom: var(--audio-bottom);
   z-index: 10;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--audio-gap);
+
+  color: var(--audio-text);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+.audio-surface {
+  min-height: var(--audio-height);
+  border: 1px solid var(--audio-border);
+  border-radius: var(--audio-radius);
+  background: var(--audio-background);
+  box-shadow: var(--audio-shadow);
+  backdrop-filter: blur(var(--audio-backdrop-blur));
+}
+
+.audio-player {
+  width: min(var(--audio-player-width), calc(100vw - 220px));
+  display: grid;
+  grid-template-columns: 30px 42px minmax(100px, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--audio-padding-x);
+}
+
+.audio-engine {
+  display: none;
+}
+
+.play-button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--audio-text);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease,
+    opacity 120ms ease;
+}
+
+.play-button:not(:disabled):hover {
+  background: rgba(0, 0, 0, 0.07);
+  transform: scale(1.04);
+}
+
+.play-button:disabled {
+  color: var(--audio-muted);
+  cursor: default;
+  opacity: 0.42;
+}
+
+.play-button-icon {
+  display: block;
+  color: currentColor;
+  font-size: var(--audio-icon-size);
+  line-height: 1;
+  font-variation-settings:
+    "FILL" var(--audio-icon-fill),
+    "wght" var(--audio-icon-weight),
+    "GRAD" 0,
+    "opsz" 24;
+  user-select: none;
+}
+
+.time-label {
+  color: var(--audio-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.seek-slider {
+  --seek-progress: 0%;
+
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.seek-slider:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.seek-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--audio-progress) 0,
+    var(--audio-progress) var(--seek-progress),
+    var(--audio-track) var(--seek-progress),
+    var(--audio-track) 100%
+  );
+}
+
+.seek-slider::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  background: var(--audio-thumb);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.35);
+}
+
+.seek-slider::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--audio-track);
+}
+
+.seek-slider::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--audio-progress);
+}
+
+.seek-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--audio-thumb);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.35);
+}
+
+.select-audio-button {
+  flex: none;
+  min-width: 116px;
+  padding: 0 20px;
+  color: var(--audio-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.select-audio-button:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.play-button:focus-visible,
+.seek-slider:focus-visible,
+.select-audio-button:focus-visible {
+  outline: 2px solid var(--audio-focus);
+  outline-offset: 3px;
+}
+
+.audio-error {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--audio-height) + 10px);
+  max-width: 320px;
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--audio-error);
+  background: rgba(24, 13, 31, 0.86);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+@media (max-width: 680px) {
+  .audio-dock {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .audio-player {
+    width: 100%;
+    grid-template-columns: 28px 38px minmax(70px, 1fr) 38px;
+    padding: 0 12px;
+  }
+
+  .select-audio-button {
+    align-self: flex-end;
+  }
 }
