@@ -13,6 +13,7 @@ type ClusterConfig = {
 
 const clusterSize = 112;
 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+export const nodeSpacingScale = 1.25;
 
 export const nodes: VisualNode[] = [
   {
@@ -115,10 +116,12 @@ function createClusterRadius(
 }
 
 function scalePosition(direction: NodeCoordinates, radius: number): NodeCoordinates {
+  const scaledRadius = radius * nodeSpacingScale;
+
   return [
-    roundCoordinate(direction[0] * radius),
-    roundCoordinate(direction[1] * radius),
-    roundCoordinate(direction[2] * radius),
+    roundCoordinate(direction[0] * scaledRadius),
+    roundCoordinate(direction[1] * scaledRadius),
+    roundCoordinate(direction[2] * scaledRadius),
   ];
 }
 

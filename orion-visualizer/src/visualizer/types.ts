@@ -39,6 +39,13 @@ export type BeamBlob = {
   height?: number;
   angle: number;
   shape: ShapeType;
+  palette: BeamBlobPalette;
 };
 
 export type ShapeType = 'triangle' | 'square';
+
+export type BeamBlobPalette =
+  | 'arcCyan'
+  | 'solarAmber'
+  | 'ionViolet'
+  | 'plasmaMint';
