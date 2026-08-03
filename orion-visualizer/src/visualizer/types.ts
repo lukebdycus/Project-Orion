@@ -48,4 +48,5 @@ export type BeamBlobPalette =
   | 'arcCyan'
   | 'solarAmber'
   | 'ionViolet'
-  | 'plasmaMint';
+  | 'plasmaMint'
+  | 'hotPink';

@@ -39,6 +39,7 @@ const shapeTypes: ShapeType[] = ['square', 'triangle'];
 const paletteTypes: BeamBlobPalette[] = [
   'arcCyan',
   'arcCyan',
+  'hotPink',
   'solarAmber',
   'ionViolet',
   'plasmaMint',
@@ -52,6 +53,7 @@ const colorPalettes: Record<
   solarAmber: ['#140900', '#fff1c2', '#ffad45'],
   ionViolet: ['#0c0318', '#e3b19f', '#c10707'],
   plasmaMint: ['#010e0c', '#dcfff8', '#34efc1'],
+  hotPink: ['#1a0000', '#ffb3c6', '#ff4d8f'],
 };
 
 export function getBeamPaletteColors(

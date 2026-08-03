@@ -16,6 +16,10 @@ import type {
 import type { Line2, LineMaterial } from 'three-stdlib';
 import { createBeamRoute } from './beamRoutes';
 import {
+  CenterEmitter,
+  centerLaunchLeadTime,
+} from './CenterEmitter';
+import {
   BeamShape,
   createRandomBeamBlob,
   pickRandomBeamPalette,
@@ -41,6 +45,7 @@ type ActiveBeam = {
   lineWidth: number;
   flareRate: number;
   flarePhase: number;
+  launchDirection: NodeCoordinates;
 };
 
 type BeamMotion = {
@@ -57,17 +62,17 @@ type PolylineSample = {
 };
 
 const spawnInterval = 0.15;
-const maxActiveBeams = 40;
+const maxActiveBeams = 75;
 const packetExitDuration = 0.12;
 const routeHoldDuration = 0.18;
 const routeFadeDuration = 1.15;
-const particleCount = 16;
-const segmentsPerParticle = 2;
+const particleCount = 25;
+const segmentsPerParticle = 15;
 
 const beamSpeeds: Record<NodeZone, number> = {
-  center: 25,
-  middle: 27,
-  edge: 29,
+  center: 80,
+  middle: 90,
+  edge: 100,
 };
 
 const beamLineWidths: Record<NodeZone, number> = {
@@ -77,7 +82,7 @@ const beamLineWidths: Record<NodeZone, number> = {
 };
 
 const beamFlareRates: Record<NodeZone, number> = {
-  center: 2.7,
+  center: 7,
   middle: 3.8,
   edge: 5.2,
 };
@@ -105,6 +110,10 @@ export function NodeConnections({ nodes }: NodeConnectionsProps) {
     });
     const routePoints = route ? getRoutePoints(route, nodeById) : [];
     const routeLength = getPolylineLength(routePoints);
+    const launchDirection = getLaunchDirection(
+      routePoints,
+      route?.direction,
+    );
 
     setActiveBeams((beams) => {
       const liveBeams = beams.filter((beam) => now - beam.startedAt < beam.duration);
@@ -113,9 +122,10 @@ export function NodeConnections({ nodes }: NodeConnectionsProps) {
         return liveBeams;
       }
 
-      return [...liveBeams, createActiveBeam(route, now, routeLength)].slice(
-        -maxActiveBeams,
-      );
+      return [
+        ...liveBeams,
+        createActiveBeam(route, now, routeLength, launchDirection),
+      ].slice(-maxActiveBeams);
     });
 
     nextBeamAt.current = now + spawnInterval;
@@ -123,6 +133,7 @@ export function NodeConnections({ nodes }: NodeConnectionsProps) {
 
   return (
     <group>
+      <CenterEmitter launches={activeBeams} />
       {activeBeams.map((beam) => (
         <AnimatedBeam key={beam.id} beam={beam} nodeById={nodeById} />
       ))}
@@ -183,13 +194,13 @@ function AnimatedBeam({ beam, nodeById }: AnimatedBeamProps) {
     const motion = getBeamMotion(beam, age, totalRouteLength);
     const flareEnergy = getProceduralFlareEnergy(beam, age);
     const fadeStartsAt =
-      beam.startedAt + beam.travelDuration + routeHoldDuration;
+      beam.startedAt +
+      centerLaunchLeadTime +
+      beam.travelDuration +
+      routeHoldDuration;
     const newlyReachedBlobs: BeamBlob[] = [];
 
-    const trailEndDistance =
-      age < beam.travelDuration
-        ? motion.headDistance
-        : totalRouteLength;
+    const trailEndDistance = motion.headDistance;
 
     updateBeamLine(
       trailHalo.current,
@@ -760,6 +771,7 @@ function createActiveBeam(
   route: BeamRoute,
   startedAt: number,
   routeLength: number,
+  launchDirection: NodeCoordinates,
 ): ActiveBeam {
   const speed = beamSpeeds[route.zone];
   const travelDuration = routeLength / speed;
@@ -771,12 +783,17 @@ function createActiveBeam(
     route,
     startedAt,
     travelDuration,
-    duration: travelDuration + routeHoldDuration + routeFadeDuration,
+    duration:
+      centerLaunchLeadTime +
+      travelDuration +
+      routeHoldDuration +
+      routeFadeDuration,
     packetLength: routeLength,
     palette: pickRandomBeamPalette(),
     lineWidth: beamLineWidths[route.zone],
     flareRate: beamFlareRates[route.zone] * flareRateJitter,
     flarePhase: hashStringToUnit(`${route.id}:flare-phase`),
+    launchDirection,
   };
 }
 
@@ -807,10 +824,22 @@ function getBeamMotion(
   age: number,
   totalRouteLength: number,
 ): BeamMotion {
-  const fadeIn = smoothstep01(clamp(age / 0.055, 0, 1));
+  const travelAge = age - centerLaunchLeadTime;
 
-  if (age <= beam.travelDuration) {
-    const travelProgress = clamp(age / beam.travelDuration, 0, 1);
+  if (travelAge <= 0) {
+    return {
+      headDistance: 0,
+      packetStartDistance: 0,
+      packetEndDistance: 0,
+      trailOpacity: 0,
+      packetOpacity: 0,
+    };
+  }
+
+  const fadeIn = smoothstep01(clamp(travelAge / 0.055, 0, 1));
+
+  if (travelAge <= beam.travelDuration) {
+    const travelProgress = clamp(travelAge / beam.travelDuration, 0, 1);
     const headDistance = totalRouteLength * travelProgress;
 
     return {
@@ -823,7 +852,7 @@ function getBeamMotion(
     };
   }
 
-  const completionAge = age - beam.travelDuration;
+  const completionAge = travelAge - beam.travelDuration;
   const packetExitProgress = clamp(
     completionAge / packetExitDuration,
     0,
@@ -894,6 +923,21 @@ function getRoutePoints(
   return route.nodeIds
     .map((nodeId) => nodeById.get(nodeId)?.position)
     .filter((position): position is NodeCoordinates => Boolean(position));
+}
+
+function getLaunchDirection(
+  routePoints: NodeCoordinates[],
+  fallbackDirection?: NodeCoordinates,
+): NodeCoordinates {
+  if (routePoints.length >= 2) {
+    return normalizePoint(
+      subtractPoint(routePoints[1], routePoints[0]),
+    );
+  }
+
+  return fallbackDirection
+    ? normalizePoint(fallbackDirection)
+    : [1, 0, 0];
 }
 
 function createParticleSeeds(beamId: string): ParticleSeed[] {

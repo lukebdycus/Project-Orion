@@ -11,9 +11,9 @@ type ClusterConfig = {
   zone: NodeZone;
 };
 
-const clusterSize = 500;
+const clusterSize = 750;
 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-const nodeSpacingScale = 3.0;
+const nodeSpacingScale = 4.5;
 const zoneSpacingScales: Record<NodeZone, number> = {
   center: 1.2,
   middle: 1.08,

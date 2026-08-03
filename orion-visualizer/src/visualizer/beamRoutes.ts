@@ -22,9 +22,9 @@ type ScoredNode = {
 const originNodeId = 'center-0';
 
 const routeProgression: Record<NodeZone, NodeZone[]> = {
-  center: ['center', 'center', 'center', 'center'],
-  middle: ['center', 'middle', 'middle', 'middle'],
-  edge: ['center', 'middle', 'edge', 'edge', 'edge'],
+  center: ['center', 'center', 'center', 'center', 'center'],
+  middle: ['center', 'middle', 'middle', 'middle', 'middle'],
+  edge: ['center', 'middle', 'middle', 'edge', 'edge', 'edge', 'edge'],
 };
 
 const topCandidateCount = 5;
