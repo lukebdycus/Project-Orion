@@ -2,10 +2,10 @@ import  { Canvas } from '@react-three/fiber';
 import './index.css';
 import { OrbitControls } from '@react-three/drei';
 import { NodeField } from './visualizer/NodeField';
-import { nodeSpacingScale } from './visualizer/nodeData';
+import { nodeFieldScale } from './visualizer/nodeData';
 import { AudioPlayer } from './audio/AudioPlayer';
 
-const cameraDistance = 18 * nodeSpacingScale;
+const cameraDistance = 18 * nodeFieldScale;
 
 function App() {
   return (

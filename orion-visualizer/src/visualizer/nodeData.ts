@@ -11,9 +11,16 @@ type ClusterConfig = {
   zone: NodeZone;
 };
 
-const clusterSize = 112;
+const clusterSize = 500;
 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-export const nodeSpacingScale = 1.25;
+const nodeSpacingScale = 3.0;
+const zoneSpacingScales: Record<NodeZone, number> = {
+  center: 1.2,
+  middle: 1.08,
+  edge: 1.03,
+};
+
+export const nodeFieldScale = nodeSpacingScale * zoneSpacingScales.edge;
 
 export const nodes: VisualNode[] = [
   {
@@ -68,7 +75,7 @@ function createClusterNodes({
     const nodeIndex = startIndex + index;
     const direction = createStarDirection(index, count, seed);
     const radius = createClusterRadius(index, count, minRadius, maxRadius, seed);
-    const position = scalePosition(direction, radius);
+    const position = scalePosition(direction, radius, zone);
 
     return {
       id: `${prefix}-${nodeIndex}`,
@@ -115,8 +122,12 @@ function createClusterRadius(
   return minRadius + (maxRadius - minRadius) * radiusProgress;
 }
 
-function scalePosition(direction: NodeCoordinates, radius: number): NodeCoordinates {
-  const scaledRadius = radius * nodeSpacingScale;
+function scalePosition(
+  direction: NodeCoordinates,
+  radius: number,
+  zone: NodeZone,
+): NodeCoordinates {
+  const scaledRadius = radius * nodeSpacingScale * zoneSpacingScales[zone];
 
   return [
     roundCoordinate(direction[0] * scaledRadius),

@@ -11,8 +11,8 @@ import type {
   ShapeType,
 } from './types';
 
-const minSize = 0.75;
-const maxSize = 1.5;
+const minSize = 1.5;
+const maxSize = 2.0;
 const fullTurn = Math.PI * 2;
 
 const unitSquarePoints: NodeCoordinates[] = [
@@ -50,11 +50,18 @@ const colorPalettes: Record<
 > = {
   arcCyan: ['#010b13', '#dcfbff', '#2edde8'],
   solarAmber: ['#140900', '#fff1c2', '#ffad45'],
-  ionViolet: ['#0c0318', '#f1e4ff', '#bd7cff'],
+  ionViolet: ['#0c0318', '#e3b19f', '#c10707'],
   plasmaMint: ['#010e0c', '#dcfff8', '#34efc1'],
 };
 
+export function getBeamPaletteColors(
+  palette: BeamBlobPalette,
+): readonly [string, string, string] {
+  return colorPalettes[palette];
+}
+
 const outlineOpacity = 0.8;
+const activationWhite = new Color('#ffffff');
 
 function makeFillShape(points: NodeCoordinates[]) {
   if (points.length < 3) {
@@ -96,6 +103,7 @@ const blobVertexShader = /* glsl */ `
 const opticalBubbleFragmentShader = /* glsl */ `
   uniform float uTime;
   uniform float uOpacity;
+  uniform float uActivatedAt;
   uniform float uSeed;
   uniform float uShape;
   uniform vec3 uColorA;
@@ -411,13 +419,18 @@ const opticalBubbleFragmentShader = /* glsl */ `
       vec3(0.0),
       vec3(0.98)
     );
+    float activationAge = max(uTime - uActivatedAt, 0.0);
+    float activationFlash =
+      1.0 - smoothstep(0.03, 0.30, activationAge);
+    color = mix(color, vec3(1.0), activationFlash * 0.94);
 
     float edgeCoverage = smoothstep(
       0.0,
       edgeAA * 1.5,
       edgeDistance
     );
-    float alpha = uOpacity * edgeCoverage * opticalAlpha;
+    float flashAlpha = mix(opticalAlpha, 0.90, activationFlash);
+    float alpha = uOpacity * edgeCoverage * flashAlpha;
 
     gl_FragColor = vec4(color, alpha);
     #include <colorspace_fragment>
@@ -438,7 +451,7 @@ export function createRandomBeamBlob({
   activatedAt,
   fadeStartsAt,
   fadeDuration,
-  palette = pickRandomPalette(),
+  palette = pickRandomBeamPalette(),
 }: CreateBeamBlobInput): BeamBlob {
   const shape = pickRandomShape();
 
@@ -467,6 +480,10 @@ export function BeamShape({ blob }: { blob: BeamBlob }) {
   const line = useRef<Line2>(null);
   const fillMaterial = useRef<ShaderMaterial>(null);
   const outlineColor = colorPalettes[blob.palette][1];
+  const settledOutlineColor = useMemo(
+    () => new Color(outlineColor),
+    [outlineColor],
+  );
   const fillUniforms = useMemo(
     () => {
       const [colorA, colorB, colorC] = colorPalettes[blob.palette];
@@ -474,6 +491,7 @@ export function BeamShape({ blob }: { blob: BeamBlob }) {
       return {
         uTime: { value: 0 },
         uOpacity: { value: 0 },
+        uActivatedAt: { value: blob.activatedAt },
         uSeed: { value: blob.angle * 2.7 },
         uShape: { value: blob.shape === 'triangle' ? 1 : 0 },
         uColorA: { value: new Color(colorA) },
@@ -481,7 +499,7 @@ export function BeamShape({ blob }: { blob: BeamBlob }) {
         uColorC: { value: new Color(colorC) },
       };
     },
-    [blob.angle, blob.palette, blob.shape],
+    [blob.activatedAt, blob.angle, blob.palette, blob.shape],
   );
 
   useFrame(({ clock }) => {
@@ -504,6 +522,14 @@ export function BeamShape({ blob }: { blob: BeamBlob }) {
     }
 
     const opacity = 1 - fadeProgress;
+    const flashProgress = clamp(
+      (now - blob.activatedAt - 0.03) / 0.27,
+      0,
+      1,
+    );
+    const flashEase =
+      flashProgress * flashProgress * (3 - 2 * flashProgress);
+    const activationFlash = (1 - flashEase) * 0.94;
 
     if (blob.shape === 'square') {
       shapeGroup.current.scale.set(
@@ -518,6 +544,9 @@ export function BeamShape({ blob }: { blob: BeamBlob }) {
     fillMaterial.current.uniforms.uTime.value = now;
     fillMaterial.current.uniforms.uOpacity.value = opacity;
     line.current.material.opacity = opacity * outlineOpacity;
+    line.current.material.color
+      .copy(settledOutlineColor)
+      .lerp(activationWhite, activationFlash);
   });
 
   return (
@@ -545,6 +574,7 @@ export function BeamShape({ blob }: { blob: BeamBlob }) {
           transparent
           depthWrite={false}
           depthTest={false}
+          toneMapped={false}
         />
       </group>
     </Billboard>
@@ -556,7 +586,7 @@ function pickRandomShape(): ShapeType {
   return shapeTypes[index];
 }
 
-function pickRandomPalette(): BeamBlobPalette {
+export function pickRandomBeamPalette(): BeamBlobPalette {
   const index = Math.floor(Math.random() * paletteTypes.length);
   return paletteTypes[index];
 }
